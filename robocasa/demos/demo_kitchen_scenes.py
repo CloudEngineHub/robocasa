@@ -10,8 +10,13 @@ from robosuite.controllers import load_composite_controller_config
 from robosuite.wrappers import VisualizationWrapper
 from termcolor import colored
 
+import robocasa.macros as macros
 from robocasa.models.scenes.scene_registry import LayoutType, StyleType
 from robocasa.scripts.collect_demos import collect_human_trajectory
+from robocasa.wrappers.enclosing_wall_render_wrapper import (
+    EnclosingWallRenderWrapper,
+    install_enclosing_wall_hotkeys,
+)
 
 
 def choose_option(
@@ -76,6 +81,18 @@ if __name__ == "__main__":
     )
     parser.add_argument("--style", type=int, help="kitchen style (choose number 1-60)")
     parser.add_argument("--robot", type=str, help="robot", default="PandaOmron")
+    parser.add_argument(
+        "--show-walls",
+        action="store_true",
+        help="render enclosing walls (default is to hide walls with enclosing_wall: true)",
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="keyboard",
+        choices=["keyboard", "spacemouse"],
+        help="Teleop device (default: keyboard)",
+    )
     args = parser.parse_args()
 
     raw_layouts = dict(
@@ -118,14 +135,30 @@ if __name__ == "__main__":
         control_freq=20,
         renderer=args.renderer,
     )
+    env = EnclosingWallRenderWrapper(env, alpha=0.1, enabled=not args.show_walls)
+    install_enclosing_wall_hotkeys(env)
 
     # Grab reference to controller config and convert it to json-encoded string
     env_info = json.dumps(config)
 
     # initialize device
-    from robosuite.devices import Keyboard
+    device = args.device
+    if device == "keyboard":
+        from robosuite.devices import Keyboard
 
-    device = Keyboard(env=env, pos_sensitivity=4.0, rot_sensitivity=4.0)
+        device = Keyboard(env=env, pos_sensitivity=4.0, rot_sensitivity=4.0)
+    elif device == "spacemouse":
+        from robosuite.devices import SpaceMouse
+
+        device = SpaceMouse(
+            env=env,
+            pos_sensitivity=4.0,
+            rot_sensitivity=4.0,
+            vendor_id=macros.SPACEMOUSE_VENDOR_ID,
+            product_id=macros.SPACEMOUSE_PRODUCT_ID,
+        )
+    else:
+        raise ValueError
 
     # collect demonstrations
     while True:

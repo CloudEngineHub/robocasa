@@ -10,6 +10,10 @@ from termcolor import colored
 
 import robocasa.macros as macros
 from robocasa.scripts.collect_demos import collect_human_trajectory
+from robocasa.wrappers.enclosing_wall_render_wrapper import (
+    EnclosingWallRenderWrapper,
+    install_enclosing_wall_hotkeys,
+)
 
 
 def choose_option(
@@ -72,6 +76,7 @@ if __name__ == "__main__":
         type=str,
         default="keyboard",
         choices=["keyboard", "spacemouse"],
+        help="Teleop device (default: keyboard)",
     )
     args = parser.parse_args()
 
@@ -125,16 +130,19 @@ if __name__ == "__main__":
 
     # Wrap this with visualization wrapper
     env = VisualizationWrapper(env)
+    env = EnclosingWallRenderWrapper(env, alpha=0.1, enabled=False)
+    install_enclosing_wall_hotkeys(env)
 
     # Grab reference to controller config and convert it to json-encoded string
     env_info = json.dumps(config)
 
     # initialize device
-    if args.device == "keyboard":
+    device = args.device
+    if device == "keyboard":
         from robosuite.devices import Keyboard
 
         device = Keyboard(env=env, pos_sensitivity=4.0, rot_sensitivity=4.0)
-    elif args.device == "spacemouse":
+    elif device == "spacemouse":
         from robosuite.devices import SpaceMouse
 
         device = SpaceMouse(

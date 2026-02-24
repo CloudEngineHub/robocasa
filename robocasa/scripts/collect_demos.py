@@ -31,6 +31,11 @@ import robocasa
 import robocasa.macros as macros
 from robocasa.models.fixtures import FixtureType
 from robocasa.utils.robomimic.robomimic_dataset_utils import convert_to_robomimic_format
+from robocasa.wrappers.enclosing_wall_render_wrapper import (
+    EnclosingWallRenderWrapper,
+    EnclosingWallHotkeyHandler,
+    install_enclosing_wall_hotkeys,
+)
 
 
 def is_empty_input_spacemouse(action_dict):
@@ -109,9 +114,15 @@ def collect_human_trajectory(
 
     discard_traj = False
 
+    wall_hotkeys = EnclosingWallHotkeyHandler(env)
+
     # Loop until we get a reset from the input or the task completes
     while True:
         start = time.time()
+
+        # Enclosing-wall hotkeys (Esc toggles; [ / ] force opaque), consumed before stepping.
+        if wall_hotkeys.consume_pending(render=render):
+            continue
 
         # Set active robot
         active_robot = env.robots[device.active_robot]
@@ -488,6 +499,9 @@ if __name__ == "__main__":
     # Wrap this with visualization wrapper
     env = VisualizationWrapper(env)
 
+    # Optional enclosing wall transparency toggle (Esc / [ / ]) for UI only
+    env = EnclosingWallRenderWrapper(env, alpha=0.15, enabled=False)
+
     # Grab reference to controller config and convert it to json-encoded string
     env_info = json.dumps(config)
 
@@ -504,6 +518,9 @@ if __name__ == "__main__":
         # wrap the environment with data collection wrapper
         all_eps_directory = os.path.join(demo_dir, "episodes")
         env = DataCollectionWrapper(env, all_eps_directory, use_env_xml_for_reset=True)
+
+    # Esc toggles wall transparency; '[' / ']' force it OFF (also mjviewer camera keys).
+    install_enclosing_wall_hotkeys(env)
 
     # initialize device
     device = args.device
